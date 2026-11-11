@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>헤어 스타일 · 컬러 피커</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#fff;color:#000;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif}
+body{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+/* 결과 */
+.top{position:sticky;top:0;z-index:5;background:#fff;padding:14px 14px 10px;border-bottom:1px solid #eee}
+.gender{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.gender span{font-size:13px;color:#555;margin-right:4px}
+.gbtn{padding:5px 14px;border:1px solid #ccc;border-radius:20px;font-size:13px}
+.gbtn.on{background:#000;color:#fff;border-color:#000}
+.result{min-height:78px;border:2px solid #000;border-radius:14px;padding:12px 14px;font-size:21px;font-weight:700;line-height:1.4;word-break:keep-all;display:flex;align-items:center}
+.result.empty{color:#999;font-weight:500;font-size:16px;border-style:dashed;border-color:#bbb}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;min-height:24px}
+.chip{font-size:12px;padding:3px 10px;border-radius:12px;background:#f2f2f2}
+.chip b{margin-left:4px;color:#888}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts button{flex:1;height:46px;border-radius:12px;font-size:16px;font-weight:700}
+.copy{background:#000;color:#fff}
+.reset{border:1px solid #ccc}
+/* 미리보기 & 기록 */
+.mid{flex:1;padding:12px 14px;overflow:auto}
+.preview{display:flex;justify-content:center;margin:4px 0 12px}
+.preview svg{width:170px;height:170px;border-radius:18px;background:#f4f1ee}
+.hist h3{font-size:14px;margin-bottom:6px;display:flex;justify-content:space-between}
+.hist h3 button{font-size:12px;color:#888}
+.hist ul{list-style:none}
+.hist li{padding:9px 10px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between;gap:8px;cursor:pointer}
+.hist li small{color:#888;font-size:12px;white-space:nowrap}
+.hist .none{color:#aaa;font-size:13px;padding:6px 0}
+/* 피커 패널 */
+.panel{position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding-bottom:env(safe-area-inset-bottom)}
+.tabs{display:flex;gap:22px;overflow-x:auto;padding:12px 16px 0;scrollbar-width:none;white-space:nowrap}
+.tabs::-webkit-scrollbar,.cards::-webkit-scrollbar{display:none}
+.tab{font-size:15px;color:#777;padding-bottom:8px;position:relative;flex:none}
+.tab.on{color:#000;font-weight:800}
+.tab.on:after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:18px;height:3px;border-radius:2px;background:#000}
+.cards{display:flex;gap:10px;overflow-x:auto;padding:12px 16px 10px;scrollbar-width:none;scroll-behavior:smooth}
+.card{flex:none;width:76px;text-align:center}
+.card .th{width:76px;height:76px;border-radius:12px;overflow:hidden;border:2.5px solid transparent;position:relative;background:#f4f1ee}
+.card .th svg{width:100%;height:100%;display:block}
+.card.on .th{border-color:#ff3d7f}
+.card.on .th:after{content:"✓";position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#ff3d7f;color:#fff;font-size:11px;line-height:18px;font-weight:700}
+.card p{font-size:12px;margin-top:5px;line-height:1.25;word-break:keep-all;color:#222}
+.card.on p{font-weight:700;color:#ff3d7f}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 12px;border-top:1px solid #f2f2f2}
+.bar .ic{width:44px;height:44px;font-size:22px;display:flex;align-items:center;justify-content:center}
+.modes{display:flex;gap:26px}
+.mode{font-size:15px;color:#999;padding:6px 0}
+.mode.on{color:#000;font-weight:800}
+.mode.dis{color:#ccc}
+.toast{position:fixed;left:50%;bottom:230px;transform:translateX(-50%) translateY(10px);background:rgba(0,0,0,.85);color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:20;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+<link rel="icon" href="favicon.svg"></head>
+<body>
+<div class="top">
+  <div class="gender"><span>성별</span><button class="gbtn on" data-g="여자">여자</button><button class="gbtn" data-g="남자">남자</button></div>
+  <div id="result" class="result empty">스타일과 컬러를 선택하세요</div>
+  <div class="chips" id="chips"></div>
+  <div class="acts"><button class="reset" id="resetBtn">초기화</button><button class="copy" id="copyBtn">복사</button></div>
+</div>
+<div class="mid">
+  <div class="preview" id="preview"></div>
+  <div class="hist"><h3>복사 기록 <button id="clearHist">지우기</button></h3><ul id="hist"></ul></div>
+</div>
+<div class="panel">
+  <div class="tabs" id="tabs"></div>
+  <div class="cards" id="cards"></div>
+  <div class="bar">
+    <button class="ic" id="xBtn" aria-label="초기화">✕</button>
+    <div class="modes">
+      <button class="mode dis" data-m="stretch">늘리기</button>
+      <button class="mode" data-m="color">컬러</button>
+      <button class="mode on" data-m="style">스타일</button>
+      <button class="mode dis" data-m="retouch">리터치</button>
+    </div>
+    <button class="ic" id="okBtn" aria-label="복사">✓</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* ---------- 데이터 ----------
+ 스타일 모양 코드: 길이 S픽시 B단발 M중단발 L롱 U업 P포니 N번 T양갈래 H반묶음 m남자숏 z삭발 w남자장발
+ + 웨이브 0~3 + 앞머리 n없음 f풀뱅 c커튼 s사이드 p처피 e시스루 */
+const STYLE_TABS=[
+ {t:"🔥인기",items:[["레이어드 컷","M1c"],["허쉬컷","M1e"],["히피펌","L3n"],["빌드펌","L2c"],["중단발 씨컬","M1n"],["커튼뱅 롱","L1c"],["울프컷","M1s"],["태슬컷","B0n"],["시스루뱅 롱","L0e"],["엘리자벳펌","L2s"]]},
+ {t:"롱 헤어",items:[["긴 생머리","L0n"],["긴머리 레이어드","L1c"],["허리길이 웨이브","L2n"],["롱 히메컷","L0f"],["긴머리 S컬","L2s"],["롱 허쉬컷","L1e"],["애교머리 롱","L1c"],["롱 태슬컷","L0s"]]},
+ {t:"웨이브 헤어",items:[["물결펌","L2n"],["글램펌","L3s"],["엘리자벳펌","L2s"],["빌드펌","L2c"],["히피펌","L3n"],["젤리펌","M2n"],["롱 라티나 컬","L3n"],["프렌치 웨이브","M2s"],["허그펌","M2c"],["내추럴 웨이브","L1n"],["소프트 컬","M1c"],["바디펌","L2e"],["여신 웨이브","L2c"]]},
+ {t:"앞머리",items:[["처피뱅","M0p"],["블런트뱅","M0f"],["커튼뱅","M0c"],["위스피뱅","M0e"],["사이드뱅","M0s"],["시스루뱅","L0e"],["풀뱅","B0f"],["에어뱅","L1e"],["애교머리","L1c"],["히메컷","L0f"]]},
+ {t:"업스타일",items:[["똥머리","N0n"],["하이 포니테일","P0n"],["로우 포니테일","P1s"],["반묶음","H1n"],["양갈래","T0f"],["로우번","N0c"],["프렌치 트위스트","N0s"],["땋은머리","T1n"],["반묶음 번","H0c"],["집게핀 업두","N1e"]]},
+ {t:"단발",items:[["90년대 플립","B1n"],["레이어드 단발","B1c"],["중단발 씨컬","M1n"],["마이크로 픽시","S0p"],["픽시컷","S0s"],["올드머니","M1s"],["보브컷","B0f"],["샤기 보브","B2e"],["버터플라이 컷","M2c"],["칼단발","B0n"],["허쉬 단발","B1e"],["단발 S컬","B2n"],["빌드 단발","B2c"]]},
+ {t:"스트레이트",items:[["매직 스트레이트","L0n"],["롱 스트레이트","L0s"],["스트레이트 펌","M0n"],["사이드파트 스트레이트","L0s"],["가운데 가르마","L0c"],["슬릭 스트레이트","M0n"],["레이어드 스트레이트","L0e"],["미디엄 스트레이트","M0f"],["단발 스트레이트","B0n"]]},
+ {t:"남성",male:true,items:[["프렌치 크롭","m0f"],["울프컷","w1s"],["멀릿","w1f"],["삭발","z0n"],["버즈컷","z0n"],["댄디컷","m0f"],["가일컷","m0s"],["쉐도우펌","m1e"],["리프컷","m1c"],["투블럭","m0s"],["포마드","m0n"],["애즈펌","m2c"],["내추럴 컬","m2f"],["K스타일 소프트 웨이브","m1e"],["아이비리그컷","m0n"],["남자 장발","w0c"]]}
+];
+/* 컬러: [이름, 색1, (색2), 타입] 타입 s단색 g그라데이션 p부분 x스페셜(다색) */
+const COLOR_TABS=[
+ {t:"🔥인기",items:[["애쉬브라운","#7b6a5d"],["초코브라운","#4a2c1d"],["밀크브라운","#a07b5f"],["버건디","#6b1f2e"],["애쉬그레이","#8c8c8a"],["핑크브라운","#8e5a55"],["블루블랙","#1b2230"],["카키브라운","#6b5e43"],["로즈골드","#c78b7c"],["실버","#c9c9cb"]]},
+ {t:"내추럴",items:[["라즈베리","#8a2f4a"],["진저","#b5592c"],["아이스블론드","#e6dcc6"],["애쉬베이지","#b4a28c"],["버건디","#6b1f2e"],["오프블랙","#2a2522"],["블론드","#d6b273"],["카라멜브라운","#9a6433"],["다크브라운","#3a2519"],["체리초콜릿","#4f1f1c"],["코퍼","#a8512a"],["밀크티베이지","#c2a68a"],["내추럴블랙","#141212"]]},
+ {t:"선명",items:[["파이어레드","#c8201e"],["체리레드","#a3122f"],["핫핑크","#e63d8c"],["퍼플","#6a2c91"],["라벤더","#b49ad6"],["로열블루","#2643a6"],["스카이블루","#7fb8e6"],["민트","#8ed8c4"],["에메랄드","#0f7a5f"],["오렌지","#e7792b"],["레몬옐로","#f1dd5b"],["플래티넘","#ece6da"]]},
+ {t:"부분 염색",items:[["카라멜 하이라이트","#3a2519","#c08a4b","p"],["블론드 하이라이트","#3a2519","#e0c58a","p"],["애쉬 브릿지","#1f1a17","#b9b5ad","p"],["핑크 브릿지","#1f1a17","#ef7fb0","p"],["블루 브릿지","#1f1a17","#3c6fd8","p"],["이너컬러 레드","#1f1a17","#c8201e","p"],["이너컬러 퍼플","#1f1a17","#8b4cc2","p"],["페이스 프레이밍 블론드","#4a2c1d","#ead29a","p"]]},
+ {t:"그라데이션",items:[["옴브레 블론드","#3a2519","#e2c48a","g"],["핑크 옴브레","#3a2519","#f19ac0","g"],["블루 옴브레","#1f1a17","#5d8fe0","g"],["라벤더 옴브레","#3a2519","#c2a8e6","g"],["애쉬 발레아쥬","#3a2519","#c8c0b4","g"],["카라멜 발레아쥬","#2f1e15","#c3864a","g"],["선셋 그라데이션","#d9452b","#f3c14d","g"],["실버 옴브레","#2a2522","#dcdcdc","g"]]},
+ {t:"스페셜",items:[["레오파드 포인트","#c99a5b","#2a1a10","x"],["레인보우","#e74c3c","#9b59b6","x"],["갤럭시","#1b1446","#c05bd6","x"],["유니콘 파스텔","#f6b3d0","#9fd8f0","x"],["홀로그램 실버","#dfe3ea","#c9b6f0","x"],["네온 그린","#5df046","#1b8c2e","x"]]}
+];
+const RAINBOW=["#e74c3c","#f39c12","#f1c40f","#2ecc71","#3498db","#9b59b6"];
+/* ---------- 상태 ---------- */
+const S={mode:"style",sTab:5,cTab:1,style:null,color:null,gender:"여자",gManual:false};
+const $=id=>document.getElementById(id);
+let uid=0;
+/* ---------- SVG 일러스트 ---------- */
+function wavySide(x1,y1,x2,y2,amp,n){ // 직선을 웨이브로
+  if(!amp) return ` L${x2},${y2}`;
+  let d="";const dx=(x2-x1)/n,dy=(y2-y1)/n;
+  for(let i=0;i<n;i++){const cx=x1+dx*(i+.5)+(i%2?amp:-amp),cy=y1+dy*(i+.5);d+=` Q${cx.toFixed(1)},${cy.toFixed(1)} ${(x1+dx*(i+1)).toFixed(1)},${(y1+dy*(i+1)).toFixed(1)}`;}
+  return d;
+}
+function fillDef(col,id){
+  // col: {c1,c2,type}
+  if(!col) return {fill:"#3b2a22",defs:""};
+  if(col.type==="g") return {fill:`url(#${id})`,defs:`<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset=".25" stop-color="${col.c1}"/><stop offset="1" stop-color="${col.c2}"/></linearGradient>`};
+  if(col.type==="x"){
+    if(col.n==="레인보우") return {fill:`url(#${id})`,defs:`<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">${RAINBOW.map((c,i)=>`<stop offset="${i/5}" stop-color="${c}"/>`).join("")}</linearGradient>`};
+    if(col.n==="레오파드 포인트") return {fill:`url(#${id})`,defs:`<pattern id="${id}" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="${col.c1}"/><ellipse cx="4" cy="4" rx="2.6" ry="2" fill="${col.c2}"/><ellipse cx="10" cy="10" rx="2.2" ry="1.7" fill="${col.c2}"/></pattern>`};
+    return {fill:`url(#${id})`,defs:`<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col.c1}"/><stop offset="1" stop-color="${col.c2}"/></linearGradient>`};
+  }
+  if(col.type==="p") return {fill:`url(#${id})`,defs:`<pattern id="${id}" width="9" height="76" patternUnits="userSpaceOnUse"><rect width="9" height="76" fill="${col.c1}"/><rect x="5" width="2.5" height="76" fill="${col.c2}"/></pattern>`};
+  return {fill:col.c1,defs:""};
+}
+function hairSVG(code,col){
+  const L=code[0],W=+code[1],B=code[2];const id="h"+(uid++);
+  const {fill,defs}=fillDef(col,id);
+  const male="mzw".includes(L);
+  const amp=W*1.6, n=W?6:1;
+  let back="",front="",cap="",bang="",extra="";
+  const ends={B:54,M:64,L:84,H:66,w:58};
+  if(ends[L]){
+    const yb=ends[L], sp=L==="L"?6:L==="M"?3:1;
+    back=`<path d="M22,28 L${20-sp},${yb}${wavySide(20-sp,yb,56+sp,yb,0,1)}${wavySide(56+sp,yb,54,28,0,1)} Z" fill="${fill}"/>`;
+    // 웨이브 외곽
+    back=`<path d="M21,28${wavySide(21,28,19-sp,yb,amp,n)} Q38,${yb+(L==="B"&&W?-6:4)} ${57+sp},${yb}${wavySide(57+sp,yb,55,28,amp,n)} Z" fill="${fill}"/>`;
+  }
+  if(L==="N"||L==="U") extra=`<circle cx="38" cy="9" r="8.5" fill="${fill}"/>`;
+  if(L==="H") extra=`<circle cx="38" cy="12" r="5" fill="${fill}"/>`;
+  if(L==="P") extra=`<path d="M50,18 C66,16 66,40 ${W?"60,52 C64,60":"62,56 C62,62"} 56,64 C60,48 58,30 48,24 Z" fill="${fill}"/>`;
+  if(L==="T") extra=`<path d="M20,30 C10,36 12,56 ${W?"8":"12"},68 C18,58 22,44 24,34 Z" fill="${fill}"/><path d="M56,30 C66,36 64,56 ${W?"68":"64"},68 C58,58 54,44 52,34 Z" fill="${fill}"/>`;
+  // 앞쪽 옆머리(중단발/롱/반묶음)
+  if("MLHw".includes(L)){
+    const yb=ends[L]+(L==="L"?-4:0);
+    front=`<path d="M24,30 C21,40 ${23-W},${yb-8} ${21-W},${yb} L28,${yb-6} C27,48 26,40 27,32 Z" fill="${fill}"/><path d="M52,30 C55,40 ${53+W},${yb-8} ${55+W},${yb} L48,${yb-6} C49,48 50,40 49,32 Z" fill="${fill}"/>`;
+  }
+  if(L==="B"){ // 단발 옆선
+    front=`<path d="M23,30 C21,40 21,48 ${W?19:21},54 L28,52 C26,44 26,38 27,32 Z" fill="${fill}"/><path d="M53,30 C55,40 55,48 ${W?57:55},54 L48,52 C50,44 50,38 49,32 Z" fill="${fill}"/>`;
+  }
+  // 정수리
+  if(L==="z") cap=`<path d="M24,30 C24,13 52,13 52,30 C47,22 29,22 24,30Z" fill="${fill}" opacity=".55"/>`;
+  else if(L==="m") cap=`<path d="M23,32 C20,${W?8:11} 56,${W?8:11} 53,32 C52,27 50,25 49,24 C42,26 32,26 27,24 C26,26 24,28 23,32Z" fill="${fill}"/>`+(W?`<path d="M26,16 q4,-3 8,0 q4,-3 8,0 q4,-3 8,0" stroke="${fill}" stroke-width="4" fill="none"/>`:"");
+  else if(L==="S") cap=`<path d="M23,34 C19,10 57,10 53,34 C52,28 50,26 48,25 C40,27 32,27 28,25 C26,27 24,30 23,34Z" fill="${fill}"/>`;
+  else cap=`<path d="M22,34 C19,9 57,9 54,34 C52,26 47,22 38,22 C29,22 24,26 22,34Z" fill="${fill}"/>`;
+  // 앞머리
+  const bf={f:`<path d="M25,22 C30,17 46,17 51,22 L52,31 C44,29 32,29 24,31 Z" fill="${fill}"/>`,
+    p:`<path d="M26,21 C31,17 45,17 50,21 L50,27 L46,25 L42,27 L38,25 L34,27 L30,25 L26,27 Z" fill="${fill}"/>`,
+    c:`<path d="M38,20 C32,21 26,25 23,36 C27,30 32,27 37,25 Z" fill="${fill}"/><path d="M38,20 C44,21 50,25 53,36 C49,30 44,27 39,25 Z" fill="${fill}"/>`,
+    s:`<path d="M24,30 C28,19 44,16 53,22 C46,22 36,25 26,34 Z" fill="${fill}"/>`,
+    e:`<g stroke="${fill}" stroke-width="2" stroke-linecap="round"><path d="M29,21 L28,29"/><path d="M33,20 L32.5,29"/><path d="M38,20 L38,29"/><path d="M43,20 L43.5,29"/><path d="M47,21 L48,29"/></g>`};
+  bang=bf[B]||"";
+  if(L==="z") bang="";
+  const skin="#f3d3c0";
+  return `<svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs>
+<rect width="76" height="76" fill="#f4f1ee"/>
+${extra}${back}
+<rect x="33" y="44" width="10" height="12" fill="#ecc3ad"/>
+<path d="M8,78 C10,62 24,56 38,56 C52,56 66,62 68,78Z" fill="${male?"#cfd6de":"#e9dfe6"}"/>
+<ellipse cx="38" cy="33" rx="13.5" ry="16" fill="${skin}"/>
+<ellipse cx="33" cy="34" rx="1.3" ry="1.6" fill="#3a2a25"/><ellipse cx="43" cy="34" rx="1.3" ry="1.6" fill="#3a2a25"/>
+<path d="M35,42 q3,2 6,0" stroke="#c9767a" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+${front}${cap}${bang}
+<path d="M28,16 C33,13 40,13 45,15" stroke="#fff" stroke-opacity=".28" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>`;
+}
+/* ---------- 텍스트 변환 ---------- */
+function styleText(n){return n.replace(/씨컬/g,"C컬").replace(/에스컬/g,"S컬").replace(/제이컬/g,"J컬");}
+function colorText(n){return n.endsWith("컬러")?n:(n.includes(" ")?n+" 컬러":n+"컬러");}
+function sentence(){
+  if(!S.style&&!S.color) return "";
+  const parts=[S.gender+"헤어"];
+  if(S.style) parts.push(styleText(S.style.n));
+  if(S.color) parts.push(colorText(S.color.n));
+  return parts.join(" ");
+}
+function colObj(it){return {n:it[0],c1:it[1],c2:it[2]||it[1],type:it[3]||"s"};}
+/* ---------- 렌더 ---------- */
+function renderTabs(){
+  const tabs=S.mode==="style"?STYLE_TABS:COLOR_TABS, cur=S.mode==="style"?S.sTab:S.cTab;
+  $("tabs").innerHTML=tabs.map((t,i)=>`<button class="tab${i===cur?" on":""}" data-i="${i}">${t.t}</button>`).join("");
+  const on=$("tabs").querySelector(".on"); if(on) on.scrollIntoView({inline:"center",block:"nearest"});
+}
+function renderCards(){
+  let html="";
+  if(S.mode==="style"){
+    const tab=STYLE_TABS[S.sTab];
+    html=tab.items.map((it,i)=>{const sel=S.style&&S.style.tab===S.sTab&&S.style.i===i;
+      return `<button class="card${sel?" on":""}" data-i="${i}"><div class="th">${hairSVG(it[1],S.color)}</div><p>${it[0]}</p></button>`}).join("");
+  }else{
+    const tab=COLOR_TABS[S.cTab];
+    const code=S.style?S.style.code:"L1n";
+    html=tab.items.map((it,i)=>{const sel=S.color&&S.color.tab===S.cTab&&S.color.i===i;
+      return `<button class="card${sel?" on":""}" data-i="${i}"><div class="th">${hairSVG(code,colObj(it))}</div><p>${it[0]}</p></button>`}).join("");
+  }
+  $("cards").innerHTML=html;
+}
+function renderResult(){
+  const s=sentence(), r=$("result");
+  r.textContent=s||"스타일과 컬러를 선택하세요"; r.classList.toggle("empty",!s);
+  let c="";
+  if(S.style) c+=`<span class="chip">스타일: ${S.style.n}<b data-x="style">✕</b></span>`;
+  if(S.color) c+=`<span class="chip">컬러: ${S.color.n}<b data-x="color">✕</b></span>`;
+  $("chips").innerHTML=c;
+  document.querySelectorAll(".gbtn").forEach(b=>b.classList.toggle("on",b.dataset.g===S.gender));
+  $("preview").innerHTML=hairSVG(S.style?S.style.code:(S.gender==="남자"?"m0f":"M1n"),S.color);
+}
+function renderModes(){document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("on",b.dataset.m===S.mode));}
+function renderAll(){renderModes();renderTabs();renderCards();renderResult();}
+/* ---------- 이벤트 ---------- */
+$("tabs").onclick=e=>{const b=e.target.closest(".tab");if(!b)return;
+  if(S.mode==="style")S.sTab=+b.dataset.i;else S.cTab=+b.dataset.i;
+  renderTabs();renderCards();$("cards").scrollLeft=0;};
+$("cards").onclick=e=>{const b=e.target.closest(".card");if(!b)return;const i=+b.dataset.i;
+  if(S.mode==="style"){
+    if(S.style&&S.style.tab===S.sTab&&S.style.i===i)S.style=null;
+    else{const it=STYLE_TABS[S.sTab].items[i];S.style={tab:S.sTab,i,n:it[0],code:it[1]};
+      if(!S.gManual)S.gender=STYLE_TABS[S.sTab].male?"남자":"여자";}
+  }else{
+    if(S.color&&S.color.tab===S.cTab&&S.color.i===i)S.color=null;
+    else{const it=COLOR_TABS[S.cTab].items[i];S.color=Object.assign(colObj(it),{tab:S.cTab,i});}
+  }
+  const sl=$("cards").scrollLeft;renderCards();$("cards").scrollLeft=sl;renderResult();};
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+  if(b.classList.contains("dis")){toast("웹앱에서는 스타일·컬러만 지원해요");return;}
+  S.mode=b.dataset.m;renderModes();renderTabs();renderCards();$("cards").scrollLeft=0;});
+document.querySelectorAll(".gbtn").forEach(b=>b.onclick=()=>{S.gender=b.dataset.g;S.gManual=true;renderResult();});
+$("chips").onclick=e=>{const x=e.target.dataset.x;if(!x)return;S[x]=null;renderCards();renderResult();};
+function reset(){S.style=null;S.color=null;S.gManual=false;S.gender="여자";renderCards();renderResult();toast("초기화했어요");}
+$("resetBtn").onclick=reset;$("xBtn").onclick=reset;
+/* ---------- 복사 ---------- */
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1600);}
+function fallbackCopy(text){const ta=document.createElement("textarea");ta.value=text;ta.setAttribute("readonly","");ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,text.length);let ok=false;try{ok=document.execCommand("copy");}catch(e){}document.body.removeChild(ta);return ok;}
+async function copyText(text){
+  if(!text){toast("먼저 스타일이나 컬러를 선택하세요");return;}
+  let ok=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);ok=true;}}catch(e){}
+  if(!ok)ok=fallbackCopy(text);
+  toast(ok?"복사했어요: "+text:"복사 실패 — 길게 눌러 직접 복사하세요");
+  if(ok)addHist(text);
+}
+$("copyBtn").onclick=()=>copyText(sentence());$("okBtn").onclick=()=>copyText(sentence());
+/* ---------- 기록 ---------- */
+const HK="bp-hair-history";
+function getHist(){try{return JSON.parse(localStorage.getItem(HK))||[]}catch(e){return []}}
+function addHist(t){let h=getHist().filter(x=>x.t!==t);h.unshift({t,d:Date.now()});h=h.slice(0,20);try{localStorage.setItem(HK,JSON.stringify(h));}catch(e){}renderHist();}
+function renderHist(){const h=getHist();
+  $("hist").innerHTML=h.length?h.map(x=>{const d=new Date(x.d);return `<li data-t="${x.t.replace(/"/g,"&quot;")}"><span>${x.t}</span><small>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</small></li>`}).join(""):'<li class="none" style="cursor:default">아직 복사한 문장이 없어요</li>';}
+$("hist").onclick=e=>{const li=e.target.closest("li[data-t]");if(li)copyText(li.dataset.t);};
+$("clearHist").onclick=()=>{localStorage.removeItem(HK);renderHist();};
+renderAll();renderHist();
+</script>
+</body>
+</html>
